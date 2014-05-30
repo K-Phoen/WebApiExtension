@@ -12,6 +12,7 @@ namespace Behat\WebApiExtension\Context;
 
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
+use Behat\WebApiExtension\Differ\Differ;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use PHPUnit_Framework_Assert as Assertions;
@@ -21,7 +22,7 @@ use PHPUnit_Framework_Assert as Assertions;
  *
  * @author Konstantin Kudryashov <ever.zet@gmail.com>
  */
-class WebApiContext implements ApiClientAwareContext
+class WebApiContext implements ApiClientAwareContext, DifferAwareContext
 {
     /**
      * @var string
@@ -49,6 +50,19 @@ class WebApiContext implements ApiClientAwareContext
     private $response;
 
     private $placeHolders = array();
+
+    /**
+     * @var Differ
+     */
+    private $differ;
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setDiffer(Differ $differ)
+    {
+        $this->differ = $differ;
+    }
 
     /**
      * {@inheritdoc}
@@ -225,6 +239,22 @@ class WebApiContext implements ApiClientAwareContext
         $expectedRegexp = '/' . preg_quote($text) . '/';
         $actual = (string) $this->response->getBody();
         Assertions::assertNotRegExp($expectedRegexp, $actual);
+    }
+
+    /**
+     * Checks that response body matches JSON from PyString.
+     *
+     * @param PyStringNode $jsonString
+     *
+     * @throws \LogicException
+     *
+     * @Then /^(?:the )?response should match json:$/
+     */
+    public function theResponseShouldMatchJson(PyStringNode $jsonString)
+    {
+        if ($diff = $this->differ->diff((string) $this->response->getBody(), $jsonString->getRaw())) {
+            throw new \LogicException($diff);
+        }
     }
 
     /**

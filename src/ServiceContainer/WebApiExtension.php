@@ -14,8 +14,10 @@ use Behat\Behat\Context\ServiceContainer\ContextExtension;
 use Behat\Testwork\ServiceContainer\Extension as ExtensionInterface;
 use Behat\Testwork\ServiceContainer\ExtensionManager;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
+use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
@@ -26,6 +28,7 @@ use Symfony\Component\DependencyInjection\Reference;
 class WebApiExtension implements ExtensionInterface
 {
     const CLIENT_ID = 'web_api.client';
+    const DIFFER_ID = 'web_api.differ';
 
     /**
      * {@inheritdoc}
@@ -52,7 +55,10 @@ class WebApiExtension implements ExtensionInterface
             ->children()
                 ->scalarNode('base_url')
                     ->defaultValue('http://localhost')
-                    ->end()
+                ->end()
+
+                ->scalarNode('differ')
+                    ->defaultValue('coduo')
                 ->end()
             ->end();
     }
@@ -63,6 +69,7 @@ class WebApiExtension implements ExtensionInterface
     public function load(ContainerBuilder $container, array $config)
     {
         $this->loadClient($container, $config);
+        $this->loadDiffers($container, $config);
         $this->loadContextInitializer($container, $config);
     }
 
@@ -70,6 +77,14 @@ class WebApiExtension implements ExtensionInterface
     {
         $definition = new Definition('GuzzleHttp\Client', array($config));
         $container->setDefinition(self::CLIENT_ID, $definition);
+    }
+
+    private function loadDiffers(ContainerBuilder $container, $config)
+    {
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/config'));
+        $loader->load('differs.xml');
+
+        $container->setAlias('web_api.differ', 'web_api.differ.'.$config['differ']);
     }
 
     private function loadContextInitializer(ContainerBuilder $container, $config)
@@ -80,6 +95,13 @@ class WebApiExtension implements ExtensionInterface
         ));
         $definition->addTag(ContextExtension::INITIALIZER_TAG);
         $container->setDefinition('web_api.context_initializer', $definition);
+
+        $definition = new Definition('Behat\WebApiExtension\Context\Initializer\DifferAwareInitializer', array(
+          new Reference(self::DIFFER_ID),
+          $config
+        ));
+        $definition->addTag(ContextExtension::INITIALIZER_TAG);
+        $container->setDefinition('web_api.differ_context_initializer', $definition);
     }
 
     /**

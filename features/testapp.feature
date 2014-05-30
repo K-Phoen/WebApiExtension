@@ -82,6 +82,38 @@ Feature: Test app verification
       1 scenario (1 passed)
       """
 
+  Scenario: Checking responses
+    Given a file named "features/partial_response.feature" with:
+      """
+      Feature: Exercise WebApiContext response partial checking
+        In order to validate the response checking step
+        As a context developer
+        I need to be able to check a response with unpredictable fields
+
+        Scenario:
+          When I send a POST request to "echo" with values:
+          | name | name |
+          | pass | pass |
+          Then the response should contain "POST"
+          And the response should match json:
+          '''
+          {
+            "warning": @string@,
+            "method": "POST",
+            "headers": @array@,
+            "name": @string@,
+            "pass": "pass"
+          }
+          '''
+      """
+    When I run "behat features/partial_response.feature"
+    Then it should pass with:
+      """
+      ...
+
+      1 scenario (1 passed)
+      """
+
   Scenario: Sending HEAD requests
     Given a file named "features/send_request.feature" with:
       """
